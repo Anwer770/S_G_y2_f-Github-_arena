@@ -159,10 +159,10 @@ export const WorkOSUnifiedTopBar: React.FC<WorkOSUnifiedTopBarProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="بحث شامل في المهام والمشاريع..."
-              className="w-full pr-9 pl-8 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 focus:bg-white dark:focus:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 rounded-xl border border-slate-200/80 dark:border-slate-700/80 focus:border-teal-600 focus:outline-hidden transition"
+              placeholder="بحث شامل... (Ctrl+K)"
+              className="w-full pr-9 pl-14 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 focus:bg-white dark:focus:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 rounded-xl border border-slate-200/80 dark:border-slate-700/80 focus:border-teal-600 focus:outline-hidden transition"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 onClick={() => onSearchChange('')}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-0.5 cursor-pointer"
@@ -170,6 +170,10 @@ export const WorkOSUnifiedTopBar: React.FC<WorkOSUnifiedTopBarProps> = ({
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            ) : (
+              <span className="hidden sm:inline-block absolute left-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-200/70 dark:bg-slate-800 rounded border border-slate-300/60 dark:border-slate-700 pointer-events-none">
+                ⌘K
+              </span>
             )}
           </div>
 
@@ -195,10 +199,11 @@ export const WorkOSUnifiedTopBar: React.FC<WorkOSUnifiedTopBarProps> = ({
             <button
               onClick={() => setIsAddMenuOpen((prev) => !prev)}
               className="px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-              title="إضافة عنصر جديد"
+              title="إضافة عنصر جديد (أو اضغط N)"
             >
               <Plus className="w-4 h-4" />
               <span>+ إضافة</span>
+              <span className="hidden sm:inline-block px-1 py-0.2 text-[9px] font-mono bg-teal-800 text-teal-200 rounded">N</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isAddMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 

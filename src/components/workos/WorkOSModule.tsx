@@ -207,9 +207,25 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
   // Global Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInputActive =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        activeEl instanceof HTMLSelectElement ||
+        (activeEl as HTMLElement)?.isContentEditable;
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+      } else if (!isInputActive && (e.key === 'n' || e.key === 'N' || e.key === 'ى')) {
+        // 'N' for New item
+        e.preventDefault();
+        setQuickAddInitialType('task');
+        setIsQuickAddOpen(true);
+      } else if (!isInputActive && (e.key === 'p' || e.key === 'P' || e.key === 'ح')) {
+        // 'P' for Print report
+        e.preventDefault();
+        setIsPrintReportOpen(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -976,10 +992,11 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
             <button
               onClick={() => setIsPrintReportOpen(true)}
               className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs shrink-0"
-              title="معاينة وطباعة تقرير إنجاز المشاريع والمهام رسمياً"
+              title="معاينة وطباعة تقرير إنجاز المشاريع والمهام رسمياً (أو اضغط P)"
             >
               <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
               <span>طباعة تقرير</span>
+              <span className="hidden sm:inline-block px-1 py-0.2 text-[9px] font-mono bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded">P</span>
             </button>
 
             {/* Data Exchange (Excel & Backup) Button */}
