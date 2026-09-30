@@ -19,6 +19,7 @@ import { calculateTaskStats } from '../../utils/tasks';
 import { calculateCustomerStats, getTodayArabicDay } from '../../utils/customers';
 import { calculateDoctorStats } from '../../utils/doctors';
 import { calculateDebtStats } from '../../utils/debts';
+import { loadTasks as loadWorkOSTasks } from '../../utils/workosStorage';
 import {
   loadDebts,
   loadDebtCommitments,
@@ -33,6 +34,8 @@ import { getCurrentUserProfile, SETTINGS_UPDATED_EVENT } from '../../utils/setti
 import { formatCurrency, calculateArabicDay } from '../../utils/formatters';
 import { AnimatedCounter } from '../common/AnimatedCounter';
 import { DashboardCharts } from './DashboardCharts';
+import { dbStorage } from '../../database/dbStorage';
+import { broadcastDataChange } from '../../utils/multiTabSync';
 
 // Protected Modals for Quick Actions
 import { TaskModal } from '../tasks/TaskModal';
@@ -185,6 +188,7 @@ export const UnifiedDashboard: React.FC<Props> = ({
 
   // Operations Tab state: 'today' | 'overdue' | 'visits' | 'commitments'
   const [activeOpsTab, setActiveOpsTab] = useState<'today' | 'overdue' | 'visits' | 'commitments'>('today');
+  const [workOSTasksVersion, setWorkOSTasksVersion] = useState(0);
 
   // Financial metrics
   const finSummary = useMemo(() => calculateFinancialSummary(financialTransactions), [financialTransactions]);
@@ -220,22 +224,64 @@ export const UnifiedDashboard: React.FC<Props> = ({
   }, [items, movements]);
 
   // Command Center Live Categorization: Today, Overdue, Upcoming
+  // دمج مهام منظومة العمل Work OS والمهام الكلاسيكية لضمان تزامن لوحة القيادة
+  const unifiedTasksPool = useMemo(() => {
+    const list: Array<{ id: string; title: string; end?: string; start?: string; status: string; priority?: string; assignee?: string; category?: string }> = [];
+    (tasks || []).forEach((t) => {
+      if (t) {
+        list.push({
+          id: t.id,
+          title: t.title,
+          end: t.end,
+          start: t.start,
+          status: t.status,
+          priority: t.pri,
+          assignee: t.resp,
+          category: t.cat,
+        });
+      }
+    });
+
+    try {
+      const workOSTasks = loadWorkOSTasks();
+      workOSTasks.forEach((wt) => {
+        // تجنب التكرار إذا كان نفس المعرف
+        if (!list.some((existing) => existing.id === wt.id || existing.id === wt.taskNumber)) {
+          list.push({
+            id: wt.taskNumber || wt.id,
+            title: wt.title,
+            end: wt.dueDate,
+            start: wt.startDate,
+            status: wt.status === 'completed' ? 'تم الانجاز' : wt.status === 'in_progress' ? 'قيد التنفيذ' : 'مخطط',
+            priority: wt.priority === 'urgent' ? 'A' : wt.priority === 'high' ? 'B' : 'C',
+            assignee: wt.assigneeId || 'المستخدم',
+            category: wt.category || 'عام',
+          });
+        }
+      });
+    } catch {
+      // قراءة آمنة
+    }
+
+    return list;
+  }, [tasks, workOSTasksVersion]);
+
   const todayTasks = useMemo(() => {
-    return (tasks || []).filter((t) => {
+    return unifiedTasksPool.filter((t) => {
       if (!t) return false;
       const isDueToday = t.end === todayStr;
       const isStartedToday = t.start === todayStr;
       const isOpen = t.status !== 'تم الانجاز';
       return (isDueToday || isStartedToday || (!t.end && isOpen)) && isOpen;
     });
-  }, [tasks, todayStr]);
+  }, [unifiedTasksPool, todayStr]);
 
   const overdueTasks = useMemo(() => {
-    return (tasks || []).filter((t) => {
+    return unifiedTasksPool.filter((t) => {
       if (!t || t.status === 'تم الانجاز' || !t.end) return false;
       return t.end < todayStr;
     });
-  }, [tasks, todayStr]);
+  }, [unifiedTasksPool, todayStr]);
 
   const overdueCommitments = useMemo(() => {
     return (commitments || []).filter((c) => {
@@ -267,8 +313,17 @@ export const UnifiedDashboard: React.FC<Props> = ({
     const handleSettingsUpdate = () => {
       setUserProfile(getCurrentUserProfile());
     };
+    const handleStorageUpdate = (e: StorageEvent) => {
+      if (e.key && e.key.includes('task')) {
+        setWorkOSTasksVersion((v) => v + 1);
+      }
+    };
     window.addEventListener(SETTINGS_UPDATED_EVENT, handleSettingsUpdate);
-    return () => window.removeEventListener(SETTINGS_UPDATED_EVENT, handleSettingsUpdate);
+    window.addEventListener('storage', handleStorageUpdate);
+    return () => {
+      window.removeEventListener(SETTINGS_UPDATED_EVENT, handleSettingsUpdate);
+      window.removeEventListener('storage', handleStorageUpdate);
+    };
   }, []);
 
   // Handlers for Quick Action Triggers
@@ -692,7 +747,30 @@ export const UnifiedDashboard: React.FC<Props> = ({
                   >
                     <div className="flex items-start gap-2.5">
                       <button
-                        onClick={() => onToggleCompleteTask?.(task.id)}
+                        onClick={() => {
+                          // إنجاز المهمة سواء كانت كلاسيكية أو في محرك Work OS
+                          if (onToggleCompleteTask) {
+                            onToggleCompleteTask(task.id);
+                          }
+                          try {
+                            const wTasks = loadWorkOSTasks();
+                            const matched = wTasks.find((wt) => wt.id === task.id || wt.taskNumber === task.id);
+                            if (matched) {
+                              const updated = wTasks.map((wt) =>
+                                wt.id === matched.id
+                                  ? {
+                                      ...wt,
+                                      status: wt.status === 'completed' ? ('in_progress' as const) : ('completed' as const),
+                                      progress: wt.status === 'completed' ? 50 : 100,
+                                      updatedAt: new Date().toISOString(),
+                                    }
+                                  : wt
+                              );
+                              dbStorage.setItem('workos_v1_tasks', JSON.stringify(updated));
+                              broadcastDataChange('TASK_UPDATED');
+                            }
+                          } catch {}
+                        }}
                         title="تبديل حالة الإنجاز"
                         className="mt-0.5 text-slate-400 hover:text-emerald-600 transition cursor-pointer shrink-0"
                       >
@@ -703,23 +781,20 @@ export const UnifiedDashboard: React.FC<Props> = ({
                           <span className="font-bold text-slate-900 dark:text-slate-100">{task.title}</span>
                           <span
                             className={`px-1.5 py-0.2 rounded text-xs font-bold ${
-                              task.pri === 'A'
+                              task.priority === 'A'
                                 ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
-                                : task.pri === 'B'
+                                : task.priority === 'B'
                                 ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
                             }`}
                           >
-                            أولوية {task.pri}
+                            أولوية {task.priority}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-                          {task.desc || 'لا يوجد وصف'}
-                        </p>
                         <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <span>المسؤول: {task.resp || 'أنا'}</span>
+                          <span>المسؤول: {task.assignee || 'أنا'}</span>
                           <span>•</span>
-                          <span>التصنيف: {task.cat}</span>
+                          <span>التصنيف: {task.category}</span>
                           {task.end && (
                             <>
                               <span>•</span>
@@ -767,12 +842,33 @@ export const UnifiedDashboard: React.FC<Props> = ({
                           متأخرة منذ {task.end}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{task.desc || task.cat}</p>
-                      <span className="text-xs text-slate-400">المسؤول: {task.resp}</span>
+                      <span className="text-xs text-slate-400">المسؤول: {task.assignee || 'المستخدم'} • {task.category}</span>
                     </div>
 
                     <button
-                      onClick={() => onToggleCompleteTask?.(task.id)}
+                      onClick={() => {
+                        if (onToggleCompleteTask) {
+                          onToggleCompleteTask(task.id);
+                        }
+                        try {
+                          const wTasks = loadWorkOSTasks();
+                          const matched = wTasks.find((wt) => wt.id === task.id || wt.taskNumber === task.id);
+                          if (matched) {
+                            const updated = wTasks.map((wt) =>
+                              wt.id === matched.id
+                                ? {
+                                    ...wt,
+                                    status: 'completed' as const,
+                                    progress: 100,
+                                    updatedAt: new Date().toISOString(),
+                                  }
+                                : wt
+                            );
+                            dbStorage.setItem('workos_v1_tasks', JSON.stringify(updated));
+                            broadcastDataChange('TASK_UPDATED');
+                          }
+                        } catch {}
+                      }}
                       className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition cursor-pointer shrink-0"
                     >
                       إنجاز الآن

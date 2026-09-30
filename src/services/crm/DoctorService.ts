@@ -76,6 +76,10 @@ export class DoctorService {
     Outbox.enqueue('DoctorVisit', 'INSERT', visit.id, visit);
     return saved;
   }
+
+  public saveVisits(visits: DoctorVisitLog[]): void {
+    this.repo.saveVisits(visits);
+  }
 }
 
 export const doctorService = new DoctorService();

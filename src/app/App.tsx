@@ -415,9 +415,10 @@ export const MainApp: React.FC = () => {
   };
 
   const handleUpdateVisits = (newVisits: CustomerVisitRecord[]) => {
-    setCustomerVisits(newVisits);
-    customerService.getVisits();
+    customerService.saveVisits(newVisits);
+    setCustomerVisits(customerService.getVisits());
     setCustomerAuditLogs(loadCustomerAuditLogs());
+    broadcastDataChange('CUSTOMER_UPDATED');
   };
 
   // Doctor Handlers
@@ -429,9 +430,10 @@ export const MainApp: React.FC = () => {
   };
 
   const handleUpdateDoctorVisits = (newVisits: DoctorVisitLog[]) => {
-    setDoctorVisits(newVisits);
-    doctorService.getVisits();
+    doctorService.saveVisits(newVisits);
+    setDoctorVisits(doctorService.getVisits());
     setDoctorAuditLogs(loadDoctorAuditLogs());
+    broadcastDataChange('DOCTOR_UPDATED');
   };
 
   const logDoctorAudit = (action: string, entity: string, name: string, details?: string) => {

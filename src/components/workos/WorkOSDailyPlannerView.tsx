@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Calendar, Clock, Plus, AlertTriangle, Sun, ChevronLeft, Timer, Coffee, Filter } from 'lucide-react';
 import { WorkTask, AppointmentItem, DailyRoutineBlock, ActiveTimerState } from '../../types/workos';
+import { customerService } from '../../services/crm/CustomerService';
+import { doctorService } from '../../services/crm/DoctorService';
+import { CustomerVisitRecord, DoctorVisitLog } from '../../types';
 
 /**
  * «التخطيط اليومي» (§18) — واجهة عرضية فقط على بيانات قائمة.
@@ -121,6 +124,37 @@ export const WorkOSDailyPlannerView: React.FC<WorkOSDailyPlannerViewProps> = ({
       });
     });
 
+    // إضافة زيارات اليوم الميدانية (عملاء وأطباء) كعرض لحظي قراءة فقط
+    try {
+      const custVisits = customerService.getVisits();
+      custVisits
+        .filter((v: CustomerVisitRecord) => v.date === todayStr && v.status !== 'ملغي')
+        .forEach((v: CustomerVisitRecord) => {
+          rows.push({
+            key: 'cv_' + v.id,
+            time: '09:00',
+            title: `زيارة عميل: ${v.customerName || 'عميل'} (${v.responsible || 'المندوب'})`,
+            kind: 'زيارة عميل',
+            tone: v.status === 'مكتمل' ? 'emerald' : 'sky',
+          });
+        });
+
+      const docVisits = doctorService.getVisits();
+      docVisits
+        .filter((v: DoctorVisitLog) => v.date === todayStr && v.status !== 'ملغي')
+        .forEach((v: DoctorVisitLog) => {
+          rows.push({
+            key: 'dv_' + v.id,
+            time: '11:00',
+            title: `زيارة طبيب: د. ${v.doctorName || 'طبيب'} (${v.responsible || 'المندوب'})`,
+            kind: 'زيارة طبيب',
+            tone: v.status === 'مكتمل' ? 'emerald' : 'indigo',
+          });
+        });
+    } catch {
+      // قراءة غير مانعة
+    }
+
     buckets.today
       .filter((t) => !!t.dueTime || !!t.startTime)
       .forEach((t) => {
@@ -135,7 +169,7 @@ export const WorkOSDailyPlannerView: React.FC<WorkOSDailyPlannerViewProps> = ({
       });
 
     return rows.sort((a, b) => a.time.localeCompare(b.time));
-  }, [routine, todayAppointments, buckets.today]);
+  }, [routine, todayAppointments, buckets.today, todayStr]);
 
   const dropOn = (bucket: Bucket) => {
     if (!draggingId) return;

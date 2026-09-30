@@ -93,6 +93,7 @@ import {
 import { Task, Commitment, TaskAuditLog } from '../../types';
 import { exportTasksToExcel } from '../../utils/excel';
 import { WorkOSPrintReportModal } from './WorkOSPrintReportModal';
+import { broadcastDataChange } from '../../utils/multiTabSync';
 
 interface WorkOSModuleProps {
   initialView?: WorkOSViewMode;
@@ -197,9 +198,10 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
       }
     : null;
 
-  // Save to LocalStorage
+  // Save to LocalStorage & broadcast sync to dashboard
   useEffect(() => {
     saveWorkOSData(data);
+    broadcastDataChange('TASK_UPDATED');
   }, [data]);
 
   // Global Shortcuts
@@ -1604,7 +1606,32 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
           };
           setData((prev) => ({ ...prev, appointments: [...prev.appointments, newA] }));
         }}
-        onAddCommitment={() => {}}
+        onAddCommitment={(c) => {
+          const newC: WorkCommitment = {
+            id: `cmt_${Date.now()}`,
+            title: c.title || 'التزام جديد',
+            entity: c.entity || 'جهة عامة',
+            person: c.person || 'المسؤول',
+            description: c.description || '',
+            commitmentDate: c.commitmentDate || todayStr,
+            dueDate: c.dueDate || todayStr,
+            status: 'in_progress',
+            importance: c.importance || 'B',
+            notes: c.notes || '',
+          };
+          setData((prev) => ({ ...prev, commitments: [newC, ...prev.commitments] }));
+          if (onSaveCommitment) {
+            onSaveCommitment({
+              id: newC.id,
+              name: newC.title,
+              beneficiary: newC.entity,
+              due: newC.dueDate,
+              amount: 0,
+              pri: newC.importance === 'A' ? 'A' : 'B',
+              status: 'قيد التنفيذ',
+            });
+          }
+        }}
         onAddHabit={(h) => {
           const newH: HabitItem = {
             ...h,

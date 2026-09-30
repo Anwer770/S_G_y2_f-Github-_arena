@@ -76,6 +76,10 @@ export class CustomerService {
     Outbox.enqueue('CustomerVisit', 'INSERT', visit.id, visit);
     return saved;
   }
+
+  public saveVisits(visits: CustomerVisitRecord[]): void {
+    this.repo.saveVisits(visits);
+  }
 }
 
 export const customerService = new CustomerService();
