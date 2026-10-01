@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorkNote, WorkMeeting } from '../../types/workos';
+import { WorkNote, WorkMeeting, WorkProject, TeamMember } from '../../types/workos';
 import {
   BookOpen,
   Users,
@@ -11,20 +11,34 @@ import {
   Calendar,
   Clock,
   CheckCircle,
+  Trash2,
+  Edit3,
 } from 'lucide-react';
 
 interface WorkOSNotesMeetingsViewProps {
   notes: WorkNote[];
   meetings: WorkMeeting[];
-  onOpenQuickAdd: (type?: string) => void;
-  onConvertActionItemToTask: (actionItem: any, meeting: WorkMeeting) => void;
+  projects?: WorkProject[];
+  team?: TeamMember[];
+  onOpenQuickAdd?: (type?: string) => void;
+  onConvertActionItemToTask?: (actionItem: any, meeting: WorkMeeting) => void;
+  onSaveNote?: (note: WorkNote) => void;
+  onDeleteNote?: (id: string) => void;
+  onSaveMeeting?: (meeting: WorkMeeting) => void;
+  onConvertMeetingActionToTask?: (action: any) => void;
 }
 
 export const WorkOSNotesMeetingsView: React.FC<WorkOSNotesMeetingsViewProps> = ({
   notes = [],
   meetings = [],
+  projects = [],
+  team = [],
   onOpenQuickAdd = (..._args: any[]) => {},
   onConvertActionItemToTask = (..._args: any[]) => {},
+  onSaveNote,
+  onDeleteNote,
+  onSaveMeeting,
+  onConvertMeetingActionToTask,
 }) => {
   const [tab, setTab] = useState<'notes' | 'meetings'>('notes');
   const [noteFilter, setNoteFilter] = useState('all');
@@ -124,14 +138,45 @@ export const WorkOSNotesMeetingsView: React.FC<WorkOSNotesMeetingsViewProps> = (
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {note.tags.map((tag, i) => (
-                      <span key={i} className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                      <span key={i} className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                         #{tag}
                       </span>
                     ))}
+                    {note.linkedProjectId && (
+                      <span className="text-[11px] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded font-mono">
+                        {projects.find((p) => p.id === note.linkedProjectId)?.code || 'مشروع'}
+                      </span>
+                    )}
                   </div>
-                  <span className="font-mono">{note.createdAt.split('T')[0]}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px]">{note.createdAt.split('T')[0]}</span>
+                    {onSaveNote && (
+                      <button
+                        onClick={() => onSaveNote({ ...note, isPinned: !note.isPinned, updatedAt: new Date().toISOString() })}
+                        className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                          note.isPinned ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                        title={note.isPinned ? 'إلغاء التثبيت' : 'تثبيت الملاحظة'}
+                      >
+                        <Pin className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onDeleteNote && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`هل أنت متأكد من حذف الملاحظة: "${note.title}"؟`)) {
+                            onDeleteNote(note.id);
+                          }
+                        }}
+                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        title="حذف الملاحظة"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -197,7 +242,17 @@ export const WorkOSNotesMeetingsView: React.FC<WorkOSNotesMeetingsViewProps> = (
                       </div>
 
                       <button
-                        onClick={() => onConvertActionItemToTask(act, meeting)}
+                        onClick={() => {
+                          if (onConvertMeetingActionToTask) {
+                            onConvertMeetingActionToTask({
+                              title: act.title,
+                              assigneeId: team.find((tm) => tm.name === act.assignee)?.id,
+                              dueDate: act.dueDate,
+                            });
+                          } else {
+                            onConvertActionItemToTask(act, meeting);
+                          }
+                        }}
                         className="px-2.5 py-1 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 rounded text-xs font-bold shrink-0 cursor-pointer"
                       >
                         تحويل لمهمة في النظام ⬅️

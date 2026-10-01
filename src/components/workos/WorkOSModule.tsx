@@ -996,17 +996,6 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
                   </button>
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                  <button
-                    onClick={() => {
-                      setSecondaryView('classic_tasks');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full text-right px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer"
-                  >
-                    <CheckSquare className="w-4 h-4 text-teal-700 dark:text-teal-300" />
-                    <span>سجل المهام اليومي (النسخة الكلاسيكية)</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -1249,6 +1238,33 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
             />
           )}
 
+          {secondaryView === 'calendar' && (
+            <WorkOSAppointmentsCommitmentsView
+              appointments={data.appointments}
+              commitments={data.commitments}
+              onOpenQuickAdd={(type) => {
+                setQuickAddInitialType(type || 'appointment');
+                setIsQuickAddOpen(true);
+              }}
+              onUpdateAppointmentStatus={(id, status) => {
+                setData((prev) => ({
+                  ...prev,
+                  appointments: prev.appointments.map((a) =>
+                    a.id === id ? { ...a, status } : a
+                  ),
+                }));
+              }}
+              onUpdateCommitmentStatus={(id, status) => {
+                setData((prev) => ({
+                  ...prev,
+                  commitments: prev.commitments.map((c) =>
+                    c.id === id ? { ...c, status } : c
+                  ),
+                }));
+              }}
+            />
+          )}
+
           {secondaryView === 'notes' && (
             <WorkOSNotesMeetingsView
               notes={data.notes}
@@ -1298,7 +1314,71 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
                 }));
               }}
               onExecuteAutomationManually={(rule) => {
-                alert(`تم تشغيل قاعدة الأتمتة: "${rule.name}" بنجاح.`);
+                setData((prev) => {
+                  let updatedTasks = [...prev.tasks];
+                  let updatedProjects = [...prev.projects];
+
+                  // Execute rule action
+                  if (rule.actionType === 'tag_priority_urgent') {
+                    updatedTasks = updatedTasks.map((t) =>
+                      t.status !== 'completed' ? { ...t, priority: 'urgent' } : t
+                    );
+                  } else if (rule.actionType === 'create_followup_task') {
+                    const followupTask: WorkTask = {
+                      id: `tsk_${Date.now()}`,
+                      taskNumber: `TSK-${String(updatedTasks.length + 1).padStart(3, '0')}`,
+                      title: `متابعة تنفيذية: ${rule.name}`,
+                      description: `مهمة متابعة تم توليدها تلقائياً بواسطة محرك الأتمتة (${rule.name})`,
+                      status: 'planned',
+                      priority: 'high',
+                      projectId: updatedProjects[0]?.id || 'prj_1',
+                      category: 'تشغيلي',
+                      tags: ['أتمتة', 'متابعة'],
+                      creator: 'محرك الأتمتة',
+                      assigneeId: prev.team[0]?.id || 'mem_1',
+                      startDate: todayStr,
+                      dueDate: todayStr,
+                      estimatedHours: 2,
+                      actualHours: 0,
+                      progress: 0,
+                      subtasks: [],
+                      checklist: [],
+                      comments: [],
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    };
+                    updatedTasks = [followupTask, ...updatedTasks];
+                  }
+
+                  const updatedAutomations = prev.automations.map((a) =>
+                    a.id === rule.id
+                      ? {
+                          ...a,
+                          executionsCount: a.executionsCount + 1,
+                          lastExecutedAt: new Date().toISOString(),
+                        }
+                      : a
+                  );
+
+                  return {
+                    ...prev,
+                    tasks: updatedTasks,
+                    projects: updatedProjects,
+                    automations: updatedAutomations,
+                  };
+                });
+              }}
+              onAddAutomation={(newRule) => {
+                setData((prev) => ({
+                  ...prev,
+                  automations: [newRule, ...prev.automations],
+                }));
+              }}
+              onDeleteAutomation={(ruleId) => {
+                setData((prev) => ({
+                  ...prev,
+                  automations: prev.automations.filter((a) => a.id !== ruleId),
+                }));
               }}
             />
           )}
@@ -1314,56 +1394,8 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
             />
           )}
 
-          {secondaryView === 'works' && (
+          {(secondaryView === 'works' || secondaryView === 'classic_tasks') && (
             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-              <TasksModule
-                tasks={classicTasks || []}
-                commitments={commitments || []}
-                categories={categories || []}
-                operations={operations || []}
-                assignees={assignees || []}
-                auditLogs={auditLogs || []}
-                onSaveTask={onSaveClassicTask || (() => {})}
-                onDeleteTask={onDeleteClassicTask || (() => {})}
-                onToggleCompleteTask={onToggleCompleteClassicTask || (() => {})}
-                onSaveCommitment={onSaveCommitment || (() => {})}
-                onDeleteCommitment={onDeleteCommitment || (() => {})}
-                onToggleCompleteCommitment={onToggleCompleteCommitment || (() => {})}
-                onClearCompletedTasks={onClearCompletedTasks || (() => {})}
-                onClearAuditLogs={onClearAuditLogs || (() => {})}
-              />
-            </div>
-          )}
-
-          {secondaryView === 'calendar' && (
-            <WorkOSAppointmentsCommitmentsView
-              appointments={data.appointments}
-              commitments={data.commitments}
-              onOpenQuickAdd={(type) => {
-                setQuickAddInitialType(type || 'appointment');
-                setIsQuickAddOpen(true);
-              }}
-              onUpdateAppointmentStatus={(id, status) => {
-                setData((prev) => ({
-                  ...prev,
-                  appointments: prev.appointments.map((a) =>
-                    a.id === id ? { ...a, status } : a
-                  ),
-                }));
-              }}
-              onUpdateCommitmentStatus={(id, status) => {
-                setData((prev) => ({
-                  ...prev,
-                  commitments: prev.commitments.map((c) =>
-                    c.id === id ? { ...c, status } : c
-                  ),
-                }));
-              }}
-            />
-          )}
-
-          {secondaryView === 'classic_tasks' && (
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
               <TasksModule
                 tasks={classicTasks || []}
                 commitments={commitments || []}
