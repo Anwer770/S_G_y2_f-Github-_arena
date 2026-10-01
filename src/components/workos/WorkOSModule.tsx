@@ -204,6 +204,29 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
     broadcastDataChange('TASK_UPDATED');
   }, [data]);
 
+  // Synchronize when navigating from external tabs
+  useEffect(() => {
+    if (!initialView) return;
+    if (initialView === 'taskflow' || initialView === 'kanban') {
+      setCurrentTab('kanban');
+      setSecondaryView(null);
+    } else if (initialView === 'tasks') {
+      setCurrentTab('tasks');
+      setSecondaryView(null);
+    } else if (initialView === 'projects') {
+      setCurrentTab('projects');
+      setSecondaryView(null);
+    } else if (initialView === 'workload') {
+      setCurrentTab('workload');
+      setSecondaryView(null);
+    } else if (['overview', 'timeline', 'priorities'].includes(initialView)) {
+      setCurrentTab(initialView);
+      setSecondaryView(null);
+    } else if (initialView === 'classic_tasks') {
+      setSecondaryView('classic_tasks');
+    }
+  }, [initialView]);
+
   // Global Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1690,6 +1713,7 @@ export const WorkOSModule: React.FC<WorkOSModuleProps> = ({
           setIsQuickAddOpen(true);
         }}
         onOpenAI={() => setIsAICopilotOpen(true)}
+        onOpenPrintReport={() => setIsPrintReportOpen(true)}
         onSelectTask={(task) => {
           setSelectedTaskForDrawer(task);
           setIsCommandPaletteOpen(false);

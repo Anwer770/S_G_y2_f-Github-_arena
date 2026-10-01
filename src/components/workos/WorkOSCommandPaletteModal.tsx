@@ -9,6 +9,8 @@ import {
   Sparkles,
   ArrowRight,
   Plus,
+  Printer,
+  Clock,
 } from 'lucide-react';
 
 export interface WorkOSCommandPaletteModalProps {
@@ -22,6 +24,7 @@ export interface WorkOSCommandPaletteModalProps {
   onSelectProject?: (project: WorkProject) => void;
   onOpenQuickAdd?: (type?: string) => void;
   onOpenAI?: () => void;
+  onOpenPrintReport?: () => void;
 }
 
 export const WorkOSCommandPaletteModal: React.FC<WorkOSCommandPaletteModalProps> = ({
@@ -35,6 +38,7 @@ export const WorkOSCommandPaletteModal: React.FC<WorkOSCommandPaletteModalProps>
   onSelectProject,
   onOpenQuickAdd,
   onOpenAI,
+  onOpenPrintReport,
 }) => {
   // Hooks called unconditionally at top of component
   const [query, setQuery] = useState('');
@@ -56,6 +60,13 @@ export const WorkOSCommandPaletteModal: React.FC<WorkOSCommandPaletteModalProps>
   const handleOpenAI = () => {
     if (typeof onOpenAI === 'function') {
       onOpenAI();
+    }
+    onClose();
+  };
+
+  const handleOpenPrint = () => {
+    if (typeof onOpenPrintReport === 'function') {
+      onOpenPrintReport();
     }
     onClose();
   };
@@ -92,8 +103,10 @@ export const WorkOSCommandPaletteModal: React.FC<WorkOSCommandPaletteModalProps>
   if (!isOpen) return null;
 
   const quickActions = [
-    { label: 'إضافة مهمة تشغيلية جديدة', icon: Plus, action: () => handleOpenAdd('task') },
+    { label: 'إضافة مهمة تشغيلية جديدة (N)', icon: Plus, action: () => handleOpenAdd('task') },
+    { label: 'طباعة وتصدير تقرير الإنجاز الرسمي (P)', icon: Printer, action: () => handleOpenPrint() },
     { label: 'استشارة المساعد الذكي AI Copilot', icon: Sparkles, action: () => handleOpenAI() },
+    { label: 'الانتقال إلى التخطيط اليومي الموحد', icon: Clock, action: () => handleNavigate('planner') },
     { label: 'الانتقال إلى صندوق الوارد (Inbox)', icon: Zap, action: () => handleNavigate('inbox') },
     { label: 'الانتقال إلى لوحة كانبان المهام', icon: CheckSquare, action: () => handleNavigate('tasks') },
     { label: 'الانتقال إلى الروتين اليومي وجلسة التقييم', icon: Calendar, action: () => handleNavigate('routine') },
